@@ -1,0 +1,224 @@
+
+library(stargazer)
+library(boot)
+
+### Please note that we normalized some of the data in Python before building our model in R.
+### We have included our Python code in our submission.
+
+movies3 = read.csv("C:\\Users\\owner\\Documents\\MMA\\2 - 2019 Fall\\MGSC 661 - Multivariate Statistical Analysis\\Midterm\\Polynomial model\\movies3_newstarmeter_version1.csv")
+attach(movies3)
+
+######################################################## Final Model
+
+regl_13_poly_3 = lm(imdbRating ~ poly(duration_minutes,4)
+                    + poly(release_year,5)
+                    + poly(total_number_of_actors,3)
+                    + total_number_of_genres
+                    + poly(total_number_of_producers,3)
+                    + total_number_of_spoken_languages
+                    + genre_horror 
+                    + genre_action
+                    + genre_comedy 
+                    + genre_drama 
+                    + genre_family 
+                    + genre_documentary
+                    + genre_scifi 
+                    + genre_animation)
+
+summary(regl_13_poly_3)
+
+# calculating MSE for regl_13_poly_3
+regquad=glm(imdbRating ~ poly(duration_minutes,4)
+            + poly(release_year,5)
+            + poly(total_number_of_actors,3)
+            + total_number_of_genres
+            + poly(total_number_of_producers,3)
+            + total_number_of_spoken_languages
+            + genre_horror 
+            + genre_action
+            + genre_comedy 
+            + genre_drama 
+            + genre_family 
+            + genre_documentary
+            + genre_scifi 
+            + genre_animation, data=movies3)
+cv.err=cv.glm(movies3, regquad)$delta[1]
+cv.err
+
+######################################################## Testing for heterskedasticity
+# Use NCV test; p-value > 0.005 means no heteroskedasticity
+
+# Test 1: Looking for conical shape in residuals
+plot(predict(regl_13),residuals(regl_13_poly_3))
+abline(0,0, lty=2, col = "red")
+
+#Test 2: Non-Constant-Variance (NCV) Test
+ncvTest(regl_13_poly_3)
+
+#Correcting heteroskedasticity
+require(lmtest)
+require(plm)
+coeftest(regl_13_poly_3, vcov=vcovHC(regl_13_poly_3, type="HC1"))
+
+######################################################## Stargazer output
+library(stargazer)
+
+names(regl_13_poly_3$coefficients)[1]="intercept"
+names(regl_13_poly_3$coefficients)[2]="duration minutes ^1"
+names(regl_13_poly_3$coefficients)[3]="duration minutes ^2"
+names(regl_13_poly_3$coefficients)[4]="duration minutes ^3"
+names(regl_13_poly_3$coefficients)[5]="duration minutes ^4"
+names(regl_13_poly_3$coefficients)[6]="release year ^1"
+names(regl_13_poly_3$coefficients)[7]="release year ^2"
+names(regl_13_poly_3$coefficients)[8]="release year ^3"
+names(regl_13_poly_3$coefficients)[9]="release year ^4"
+names(regl_13_poly_3$coefficients)[10]="release year ^5"
+names(regl_13_poly_3$coefficients)[11]="total number of actors ^1"
+names(regl_13_poly_3$coefficients)[12]="total number of actors ^2"
+names(regl_13_poly_3$coefficients)[13]="total number of actors ^3"
+names(regl_13_poly_3$coefficients)[14]="total number of genres"
+names(regl_13_poly_3$coefficients)[15]="total number of producers ^1"
+names(regl_13_poly_3$coefficients)[16]="total number of producers ^2"
+names(regl_13_poly_3$coefficients)[17]="total number of producers ^3"
+names(regl_13_poly_3$coefficients)[18]="total number of spoken languages"
+names(regl_13_poly_3$coefficients)[19]="genre horror"
+names(regl_13_poly_3$coefficients)[20]="genre action"
+names(regl_13_poly_3$coefficients)[21]="genre comedy"
+names(regl_13_poly_3$coefficients)[22]="genre drama"
+names(regl_13_poly_3$coefficients)[23]="genre family"
+names(regl_13_poly_3$coefficients)[24]="genre documentary"
+names(regl_13_poly_3$coefficients)[25]="genre sci-fi"
+names(regl_13_poly_3$coefficients)[26]="genre animation"
+
+library(stargazer)
+stargazer(regl_13_poly_3 ,type='html')
+
+######################################################## Outliers 
+
+# Test 1: visual test of outliers (studentied residual plot)
+qqPlot(regl_13)
+
+# Test 2: Bonferroni test (p < 0.05)
+outlierTest(regl_13_poly_3)
+
+# Note: We identified 10 outliers but removing them did not impact our model's performance, so they were allowed to remain. 
+
+
+
+###################################################################
+#PREDICTION TIME
+###################################################################
+#Mickey and the Bear
+Mickey_and_the_bear = data.frame(duration_minutes=88,release_year=2019,total_number_of_actors=7,
+                                 total_number_of_genres=1,total_number_of_producers=4,total_number_of_directors=1,
+                                 total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=0,genre_drama=1, 
+                                 genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_1 = predict(regl_13_poly_3,Mickey_and_the_bear)
+prediction_1
+#Current score = 7/10 | Our prediction = 7,01/10
+
+#Noelle
+#no duration minutes , we will assume 1 hour
+Noelle = data.frame(duration_minutes=60,release_year=2019,total_number_of_actors=100,
+                    total_number_of_genres=3,total_number_of_producers=1,total_number_of_directors=1,
+                    total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=1,genre_drama=0, 
+                    genre_family=1,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_2 = predict(regl_13_poly_3,Noelle)
+prediction_2
+#Current score = NA | Our prediction = 6,40/10
+
+#Atlantics
+Atlantics = data.frame(duration_minutes=104,release_year=2019,total_number_of_actors=9,
+                       total_number_of_genres=1,total_number_of_producers=4,total_number_of_directors=1,
+                       total_number_of_spoken_languages=3,genre_horror=0,genre_action=0,genre_comedy=0,genre_drama=1, 
+                       genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_3 = predict(regl_13_poly_3,Atlantics)
+prediction_3
+#Current score = 7,2/10 | Our prediction = 7,39/10
+
+#Charlies Angels
+Charlies_angels = data.frame(duration_minutes=118,release_year=2019,total_number_of_actors=26,
+                             total_number_of_genres=3,total_number_of_producers=4,total_number_of_directors=1,
+                             total_number_of_spoken_languages=1,genre_horror=0,genre_action=1,genre_comedy=1,genre_drama=0, 
+                             genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_4 = predict(regl_13_poly_3,Charlies_angels)
+prediction_4
+#Current score = NA | Our prediction = 6,84/10
+
+#Le Mans 66
+Le_mans_66 = data.frame(duration_minutes=152,release_year=2019,total_number_of_actors=203,
+                        total_number_of_genres=4,total_number_of_producers=3,total_number_of_directors=1,
+                        total_number_of_spoken_languages=1,genre_horror=0,genre_action=1,genre_comedy=0,genre_drama=1, 
+                        genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_5 = predict(regl_13_poly_3,Le_mans_66)
+prediction_5
+#Current score = 7,6/10 | Our prediction = 7,45/10
+
+#The good liar
+The_good_liar = data.frame(duration_minutes=109,release_year=2019,total_number_of_actors=47,
+                           total_number_of_genres=1,total_number_of_producers=2,total_number_of_directors=1,
+                           total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=0,genre_drama=1, 
+                           genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_6 = predict(regl_13_poly_3,The_good_liar)
+prediction_6
+#Current score = NA | Our prediction = 7,79/10
+
+
+#The report
+The_report = data.frame(duration_minutes=119,release_year=2019,total_number_of_actors=43,
+                        total_number_of_genres=2,total_number_of_producers=7,total_number_of_directors=1,
+                        total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=0,genre_drama=1, 
+                        genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_7 = predict(regl_13_poly_3,The_report)
+prediction_7
+#Current score = 7/10 | Our prediction = 7,70/10
+
+
+#Waves
+Waves = data.frame(duration_minutes=135,release_year=2019,total_number_of_actors=24,
+                   total_number_of_genres=2,total_number_of_producers=3,total_number_of_directors=1,
+                   total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=0,genre_drama=1, 
+                   genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_8 = predict(regl_13_poly_3,Waves)
+prediction_8
+#Current score = 7.7/10 | Our prediction = 7,85/10
+
+
+#21 bridges
+bridges_21 = data.frame(duration_minutes=99,release_year=2019,total_number_of_actors=171,
+                        total_number_of_genres=4,total_number_of_producers=6,total_number_of_directors=1,
+                        total_number_of_spoken_languages=1,genre_horror=0,genre_action=1,genre_comedy=0,genre_drama=1, 
+                        genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_9 = predict(regl_13_poly_3,bridges_21)
+prediction_9
+#Current score = 6,4/10 | Our prediction = 6,95/10
+
+
+#Beautiful Day in the Neighbourhood
+Beautiful_day = data.frame(duration_minutes=108,release_year=2019,total_number_of_actors=67,
+                           total_number_of_genres=2,total_number_of_producers=4,total_number_of_directors=1,
+                           total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=0,genre_drama=1, 
+                           genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_10 = predict(regl_13_poly_3,Beautiful_day)
+prediction_10
+#Current score = 6,9/10 | Our prediction = 7,87/10
+
+
+#Dark Waters
+Dark_waters = data.frame(duration_minutes=126,release_year=2019,total_number_of_actors=81,
+                         total_number_of_genres=3,total_number_of_producers=4,total_number_of_directors=1,
+                         total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=0,genre_drama=1, 
+                         genre_family=0,genre_documentary=0,genre_scifi=0,genre_animation=0)
+prediction_11 = predict(regl_13_poly_3,Dark_waters)
+prediction_11
+#Current score = NA | Our prediction = 8,09/10
+
+
+#Frozen
+Frozen = data.frame(duration_minutes=118,release_year=2019,total_number_of_actors=16,
+                    total_number_of_genres=6,total_number_of_producers=2,total_number_of_directors=2,
+                    total_number_of_spoken_languages=1,genre_horror=0,genre_action=0,genre_comedy=1,genre_drama=0, 
+                    genre_family=1,genre_documentary=0,genre_scifi=0,genre_animation=1)
+prediction_12 = predict(regl_13_poly_3,Frozen)
+prediction_12
+#Current score = NA | Our prediction =7,32/10
